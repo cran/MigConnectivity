@@ -1,3 +1,9 @@
+# MigConnectivity 0.4.6
+
+* Fixed fixing zero in estTransition (MCMC mode)
+* Corrected documentation for simTelemetryData
+* estTransition now allows for more options for entering telemetry data when method is MCMC than it used to (catching up to method = "bootstrap")
+
 # MigConnectivity 0.4.5
 
 * Responding to CRAN comments
