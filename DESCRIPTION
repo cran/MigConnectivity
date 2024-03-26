@@ -1,8 +1,8 @@
 Type: Package
 Package: MigConnectivity
 Title: Estimate Migratory Connectivity for Migratory Animals
-Version: 0.4.6
-Date: 2024-3-15
+Version: 0.4.7
+Date: 2024-3-25
 Authors@R: c(
     person("Jeffrey A.", "Hostetler", , "jhostetler@usgs.gov", role = c("cre", "aut")),
     person("Michael T.", "Hallworth", role = "aut"),
@@ -37,7 +37,7 @@ LazyDataCompression: xz
 RoxygenNote: 7.2.3
 SystemRequirements: JAGS (https://mcmc-jags.sourceforge.net)
 NeedsCompilation: no
-Packaged: 2024-03-18 14:59:29 UTC; jhostetler
+Packaged: 2024-03-25 20:56:58 UTC; jhostetler
 Author: Jeffrey A. Hostetler [cre, aut],
   Michael T. Hallworth [aut],
   Clark S. Rushing [ctb],
@@ -45,4 +45,4 @@ Author: Jeffrey A. Hostetler [cre, aut],
   Valentine Herrmann [ctb]
 Maintainer: Jeffrey A. Hostetler <jhostetler@usgs.gov>
 Repository: CRAN
-Date/Publication: 2024-03-18 15:20:02 UTC
+Date/Publication: 2024-03-26 17:40:02 UTC
