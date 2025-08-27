@@ -1,6 +1,6 @@
 ---
 title: 'MigConnectivity package: worked example'
-author: "Jeffrey A. Hostetler, Michael T. Hallworth"
+author: "Jeffrey A. Hostetler, Michael T. Hallworth, Henry Stevens"
 date: '`r Sys.Date()`'
 output:
   rmarkdown::html_vignette: default
@@ -40,7 +40,7 @@ separates estimation of migratory connectivity into two functions: estTransition
 The `estTransition` function estimates transition probabilities (ψ) from seasonal movement data (i.e. pattern of movement) 
 and the `estStrength` estimates the strength of migratory connectivity (MC) from transition probabilities.
 
-Below we provide a worked example using Yellow Warbler (<i>Setophaga petechia</i>) data to help users format their data to use the new 
+Below we provide a worked example using Yellow Warbler (<i>Setophaga petechia</i>) data [@hostetler_challenges_2025] to help users format their data to use the new 
 functionality in the MigConnectivity package. There are multiple published Yellow Warbler data sets that can be used to estimate migratory connectivity. Here, we illustrate how to integrate genetic data and light-level geolocators to estimate MC. Genetic sampling of 203 individuals occurred at 20 locations across the nonbreeding range, from Baja Mexico, south through central Mexico, Central America (Costa Rica and Nicaragua), and South America (Trinidad and Venezuela) [@bay_genetic_2021].
 
 ### Define nonbreeding regions
@@ -417,97 +417,44 @@ to [Download eBird data products](https://science.ebird.org/en/use-ebird-data/do
 library(ebirdst)
 library(tidyverse)
 
-sp_path <- ebirdst_download(species = "yelwar", path = "./")
+sp_path <- ebirdst_download_status(species = "yelwar", path = "./data/")
 
-run_review <- subset(ebirdst_runs, species_code == "yelwar")
+ebird <- load_raster("yelwar", path = "./data/",
+                     product = "abundance", 
+                     period = "seasonal",
+                     metric = "mean",
+                     resolution = "9km")  #medium resolution to match old code
 
-yelwar_dates <- run_review %>%
-  # just keep the seasonal definition columns
-  select(setdiff(matches("(start)|(end)"), matches("year_round"))) %>%
-  # transpose
-  gather("label", "date") %>%
-  # spread data so start and end dates are in separate columns
-  separate(label, c("season", "start_end"), "_(?=s|e)") %>%
-  spread(start_end, date) %>%
-  select(season, start_dt = start, end_dt = end) %>%
-  filter(season != "resident")
+## NOTE: parse_raster_dates is now defunct.
+# workaround -- divide abundance raster by season and estimate relative abundance
 
-# did the season pass review
-quality_rating <- run_review[paste0(yelwar_dates$season, "_quality")]
-yelwar_dates$pass <- as.integer(quality_rating) > 1
-yelwar_dates
-rastAbundMed <- load_raster(path = sp_path, 
-                            product = "abundance",
-                            period = "weekly", 
-                            resolution = "mr")
-# dates for each abundance layer
-weeks <- parse_raster_dates(rastAbundMed)
-# assign to seasons
-weeks_season <- rep(NA_character_, length(weeks))
-for (i in seq_len(nrow(yelwar_dates))) {
-  s <- yelwar_dates[i, ]
-  # skip seasonal assignment if season failed
-  if (!s$pass) {
-    next()
-  }
-  # handle seasons cross jan 1 separately
-  if (s$start_dt <= s$end_dt) {
-    in_season <- weeks >= s$start_dt & weeks <= s$end_dt
-  } else {
-    in_season <- weeks >= s$start_dt | weeks <= s$end_dt
-  }
-  weeks_season[in_season] <- s$season
-}
-table(weeks_season)
-b <- which(weeks_season == 'breeding')
-w <- which(weeks_season == 'nonbreeding')
+b <- ebird[['breeding']]
+w <- ebird[['nonbreeding']]
 
-```
+targetSitesProj <- sf::st_transform(targetSitesYEWA, terra::crs(w))
+originSitesProj <- sf::st_transform(YEWA_origin_sites, terra::crs(b))
 
-```{r, eval=FALSE}
-eBirdRelAbund <- function(wks, abund, regions, names=regions[,1], fun = max,
-                          regionFirst = FALSE, seasonalAlready = FALSE) {
-  regionSum <- array(NA, nrow(regions),
-                     list(names))
-  thing <- abund[[wks]]
-  for (j in 1:nrow(regions)){
-    region <- regions[j, ]
-    rastvals <- terra::extract(thing, terra::vect(region))[,1 + 1:length(wks)]
-    if (seasonalAlready) {
-      regionSum[j] <- sum(rastvals, na.rm = TRUE)
-    }
-    else if (regionFirst) {
-      sumByWeek <- apply(rastvals, 2, sum, na.rm = TRUE)
-      regionSum[j] <- do.call(fun, list(x = sumByWeek, na.rm = TRUE))
-    }
-    else
-    {
-      valid <- apply(rastvals, 1, function(x) any(!is.na(x)))
-      maxed <- apply(rastvals[valid, ], 1, fun, na.rm = TRUE)
-      regionSum[j] <- sum(maxed, na.rm = TRUE)
-    }
-  }
-  testII <- prop.table(regionSum)
-  return(testII)
-}
+relAbundYEWAWint <- terra::extract(w, targetSitesProj, fun = 'sum', na.rm = T)
+relAbundYEWAWint$rel <- relAbundYEWAWint$nonbreeding / 
+  sum(relAbundYEWAWint$nonbreeding)
+relAbundYEWAWint <- relAbundYEWAWint$rel
+names(relAbundYEWAWint) <- targetNames
 
-targetSitesProj <- sf::st_transform(targetSitesYEWA, terra::crs(rastAbundMed))
-originSitesProj <- sf::st_transform(YEWA_origin_sites, terra::crs(rastAbundMed))
-
-relAbundYEWAWint <- eBirdRelAbund(w, rastAbundMed, targetSitesProj,
-                                  targetNames, mean)
-relAbundYEWABreed <- eBirdRelAbund(b, rastAbundMed, originSitesProj,
-                                   originNames, mean)
+relAbundYEWABreed <- terra::extract(b, originSitesProj, fun = 'sum', na.rm = T)
+relAbundYEWABreed$rel <- relAbundYEWABreed$breeding / 
+  sum(relAbundYEWABreed$breeding)
+relAbundYEWABreed <- relAbundYEWABreed$rel
+names(relAbundYEWABreed) <- originNames
 
 ```
 ```{r, echo = FALSE}
-relAbundYEWABreed <- c(Arctic = 0.1711898, 'Pacific Northwest' = 0.1180323,  
-                       Southwest = 0.2857159, Central = 0.2415061,
-                       East = 0.1835559)
-relAbundYEWAWint <- c('Pacific and Central Mexico' = 0.08557703,    
-                      'Atlantic Lowland Mexico' = 0.16889791,
-                      'Central America' = 0.46434053, 
-                      'South America' = 0.28118453)
+relAbundYEWABreed <- c(Arctic = 0.1644263, 'Pacific Northwest' = 0.1167522,  
+                       Southwest = 0.2902441, Central = 0.2394759,
+                       East = 0.1891015)
+relAbundYEWAWint <- c('Pacific and Central Mexico' = 0.09903443,    
+                      'Atlantic Lowland Mexico' = 0.18604479,
+                      'Central America' = 0.43239219, 
+                      'South America' = 0.28252859)
 ```
 ```{r}
 relAbundYEWAWint

@@ -559,7 +559,7 @@ divCoefGrad <- function(psi_r, banded, reencountered, counts) {
 #'                             nSamples = 200) #reduced for example speed
 #' print(psi_r_boot)
 #' }
-#' @seealso \code{\link{estTransition}}, \code{\link{optim}}
+#' @seealso \code{\link{estTransition}}, \code{\link[stats]{optim}}
 calcTransition <- function(banded = NULL, reencountered = NULL, counts = NULL,
                            originAssignment = NULL, targetAssignment = NULL,
                            originNames = NULL, targetNames = NULL,
@@ -636,6 +636,66 @@ calcPi <- function(banded = NULL, reencountered = NULL, counts = NULL,
 
 }
 
+calcNMCpop <- function(subPsi) {
+  nTargetSites <- length(subPsi)
+  perOriginNMC <- 1 + sum(ifelse(subPsi==0, -5, log(subPsi)) * subPsi) /
+    log(nTargetSites)
+}
+
+#' Calculate NMC_XY, another type of migratory connectivity strength
+#'
+#' Provides simple calculation of NMC_XY (network migratory connectivity
+#' strength between seasons X and Y), NMCa_XY (abundance-weighted network
+#' migratory connectivity strength), and network migratory connectivity
+#' diversity (X node-specific version of NMC_XY) from point estimate of psi
+#' (transition probabilities) and \code{originRelAbund} (optional). Does not
+#' include measures of uncertainty.
+#'
+#' @param psi Matrix of transition probabilities
+#' @param originRelAbund (optional) Vector of relative (proportional) abundance
+#'   at the origin sites. If entered, should sum to 1.
+#'
+#' @return \code{calcNMC} returns a list with elements:
+#' \describe{
+#'   \item{\code{NMC}}{scalar real value between 0 and 1, indicating the
+#'    strength of network migratory connectivity}
+#'   \item{\code{NMCpop}}{Vector of network migratory connectivity diversity
+#'    values, also between 0 and 1, the X-node-specific version of NMC_XY}
+#'   \item{\code{NMCa}}{If \code{originRelAbund} was entered, the results will
+#'    include this, an abundance weighted measure of the strength of network
+#'    migratory connectivity (also between 0 and 1). If \code{originRelAbund}
+#'    was not entered, this will be left out}
+#' }
+#' @export
+#'
+#' @examples
+#' nScenarios <- length(samplePsis)
+#' NMC1 <- vector("list", nScenarios)
+#' for (i in 1:nScenarios) {
+#'   NMC1[[i]] <- calcNMC(samplePsis[[i]])
+#' }
+#' names(NMC1) <- names(samplePsis)
+#' str(NMC1)
+#'
+#' calcNMC(samplePsis[[7]], sampleOriginRelN[[2]])
+#'
+#' @seealso \code{\link{estNMC}}, \code{\link{calcMC}}, \code{\link{estMC}}
+calcNMC <- function(psi, originRelAbund = NULL) {
+  if (!inherits(psi, "matrix"))
+    stop("The calcNMC input psi must be a matrix")
+  NMCpop <- apply(psi, 1, calcNMCpop)
+  NMC <- mean(NMCpop)
+  names(NMCpop) <- rownames(psi)
+  if (is.null(originRelAbund))
+    return(list(NMC = NMC, NMCpop = NMCpop))
+  else {
+    if (length(originRelAbund)!=nrow(psi) || !isTRUE(all.equal(sum(originRelAbund), 1,
+                                                             tolerance = 1e-6)))
+      stop('originRelAbund must be a vector with [number of origin sites] values that sum to 1.')
+    NMCa <- sum(NMCpop * originRelAbund)
+    return(list(NMC = NMC, NMCpop = NMCpop, NMCa = NMCa))
+  }
+}
 
 #' @rdname reverseTransition
 #' @export

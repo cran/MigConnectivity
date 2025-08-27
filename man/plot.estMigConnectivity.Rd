@@ -7,7 +7,8 @@
 \method{plot}{estMigConnectivity}(
   x,
   plot.which = ifelse(inherits(x, "estPsi"), "psi", ifelse(inherits(x, "estMC"), "MC",
-    ifelse(inherits(x, "estGamma"), "gamma", "rM"))),
+    ifelse(inherits(x, "estGamma"), "gamma", ifelse(inherits(x, "estMantel"), "rM",
+    "NMCpop")))),
   point = c("mean", "median", "point"),
   range = c("simpleCI", "bcCI", "se"),
   xlab = NULL,
@@ -81,7 +82,7 @@ of the legend (for psi or r (multi-age) only; one of "bottomright",
 \item{map}{placeholder for eventually allowing users to plot psi estimates
 on a map}
 
-\item{...}{Additional parameters passed to \code{\link{plotCI}}}
+\item{...}{Additional parameters passed to \code{\link[gplots]{plotCI}}}
 }
 \value{
 No return value, called to generate plot.
@@ -90,5 +91,5 @@ No return value, called to generate plot.
 Basic plot function for estMigConnectivity objects
 }
 \seealso{
-\code{\link{estMC}}, \code{\link{estMantel}}
+\code{\link{estTransition}}, \code{\link{estStrength}}, \code{\link{estMantel}}
 }
